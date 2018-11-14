@@ -1,0 +1,314 @@
+---
+title: <font size = 7> A Statistical Analysis of Finnish Vowel Duration</font>
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##  Installing required libraries:
+
+
+```{r libraries}
+require(ggplot2)
+require(dplyr)
+require(MASS)
+require(car)
+require(knitr)
+
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+```
+
+## Loading data:
+
+read.delim2() is used as the data is in .txt format:
+
+```{r data, echo=TRUE}
+finnish.data <- read.delim2('/Users/aneeshnaik/Downloads/finnishVowelDuration.txt', header = TRUE)
+
+head(finnish.data)
+
+```
+The devoiced durations can be obtained by subtracting the values of the 'vcdDur' vector from the 'duration' vector:
+
+```{r data2, echo=TRUE}
+finnish.data <- finnish.data %>%
+  mutate(dvcdDur = duration - vcdDur)
+
+head(finnish.data)
+
+```
+Alternatively this can be achieved by using the following line of code:
+```{r data3, echo=TRUE}
+#finnish.data$dvcdDur <- finnish.data$duration-finnish.data$vcdDur
+```
+
+## Plotting Histograms:
+
+Plot for 'duration' vector:
+
+```{r plot1, echo=TRUE}
+truehist(finnish.data$duration,
+         h = 10,
+         col = '#CC79A7')
+```
+
+Plot for 'vcdDur' vector:
+
+```{r plot2, echo=TRUE}
+truehist(finnish.data$vcdDur,
+         h = 10,
+         col = '#0072B2')
+```
+
+Plot for 'dvcdDur' vector:
+
+```{r plot3, echo=TRUE}
+truehist(finnish.data$dvcdDur,
+         h = 10,
+         col = '#E69F00')
+```
+
+We notice in the plot for dvcdDur that the most common value by far is 0. Looking over the data in finnishVowelDuration.txt, it appears that when vowel position is nonfinal, we tend to get dvcdDur values of 0. This suggests that vowels are devoiced only in the final position in Finnish. 
+
+
+```{r plot7, echo=TRUE}
+hypo0 <- ggplot(finnish.data,
+                 aes(position, dvcdDur))
+
+hypo1 <- hypo0 + geom_point() + geom_smooth(method=lm, se=FALSE)
+
+hypo1
+
+```
+
+## Analysis by speaker:
+
+We now plot the values for 'vcdDur', as they differ according to vowel length, for each of the 4 speakers:
+
+```{r spk2, echo=TRUE}
+p0 <- ggplot(finnish.data,
+               aes(vcdDur))
+
+p1 <- p0 + geom_histogram() +
+  facet_grid(length ~ speaker)
+
+p1
+```
+
+Doing the same with position instead of length:
+
+```{r spk3, echo=FALSE}
+p0 <- ggplot(finnish.data,
+               aes(vcdDur))
+
+p1 <- p0 + geom_histogram() +
+  facet_grid(position ~ speaker)
+
+p1
+```
+
+Vowel length seems to be a good indicator for the values of 'vcdDur'; short vowels correlate to 'vcdDur' values of ~0-150 where as long vowels correlate to values between 150 and 300. 
+
+The figures for position show that the values for voiced durations extend to longer durations in final position than those in non-final position.
+
+We can also plot boxplots for this data:
+
+```{r box1, echo=TRUE}
+
+s1 <- filter(finnish.data,speaker == 'Speaker #1')
+
+s2 <- filter(finnish.data,speaker == 'Speaker #2')
+
+s3 <- filter(finnish.data,speaker == 'Speaker #3')
+
+s4 <- filter(finnish.data,speaker == 'Speaker #4')
+
+par(mfrow=c(2,2))
+
+boxplot(s1$vcdDur ~ s1$length)
+title("Speaker 1")
+boxplot(s2$vcdDur ~ s2$length)
+title("Speaker 2")
+boxplot(s3$vcdDur ~ s3$length)
+title("Speaker 3")
+boxplot(s4$vcdDur ~ s4$length)
+title("Speaker 4")
+```
+
+Doing the same with position instead of length:
+
+```{r box2, echo=TRUE}
+par(mfrow=c(2,2))
+
+boxplot(s1$vcdDur ~ s1$position)
+title("Speaker 1")
+boxplot(s2$vcdDur ~ s2$position)
+title("Speaker 2")
+boxplot(s3$vcdDur ~ s3$position)
+title("Speaker 3")
+boxplot(s4$vcdDur ~ s4$position)
+title("Speaker 4")
+```
+
+Like the histograms, the box plots show voiced durations extending to longer values in final than non-final position.
+
+## Central tendancies and spread:
+
+Creating a table summarising mean, median and standard deviation of vcdDur:
+```{r sd1, echo=TRUE}
+summary <- finnish.data %>%
+  group_by(speaker,length) %>%
+  summarize(mean = mean(vcdDur),
+            median = median(vcdDur),
+            sd = sd(vcdDur)
+  )
+
+kable(summary)
+```
+
+The speakers do not differ too much, perhaps with the exception of speaker 3 who has a noticably higher mean than the other three. The mean and median values coincide almost perfectly. The standard deviation is higher for long vowels than for short vowels across all four speakers. 
+
+## Relationships:
+
+Before exploring relationships between vcdDur and dvcdDur, we need to clean up the data a little bit. First we must get rid of all the entries with dvcdDur = 0:
+
+```{r rel1, echo=TRUE}
+nonzero <- finnish.data[finnish.data$dvcdDur!=0,]
+clean <- nonzero[nonzero$dvcdDur>=0,] #ensuring that duration >= vcdDur
+```
+Now we can create a scatterplot showing the relationship between vcdDur and dvcdDur:
+
+```{r rel2, echo=TRUE}
+v_dvc0 <- ggplot(clean,
+                aes(vcdDur, dvcdDur))
+
+v_dvc1 <- v_dvc0 + geom_point()
+
+v_dvc1
+
+```
+ 
+Adding a smoother and separating points by length:
+
+```{r rel3, echo=TRUE}
+v_dvc0 <- ggplot(clean,
+                aes(vcdDur, dvcdDur, color = length))
+
+v_dvc1 <- v_dvc0 + geom_point() + geom_smooth(method=lm, se=FALSE)
+
+v_dvc1
+
+```
+
+From these plots it appears that there is a slight positive correlation between vcdDur and dvcdDur. This correlation is slightly stronger for short vowels than it is for long vowels. 
+
+We can now do the same for sanoiDur and vcdDur:
+
+```{r rel4, echo=TRUE}
+v_san0 <- ggplot(clean,
+                aes(vcdDur, sanoiDur, color = length))
+
+v_san1 <- v_san0 + geom_point() + geom_smooth(method=lm, se=FALSE)
+
+v_san1
+
+```
+
+This plot shows a much stronger correlation between vcdDur and sanoiDur for long vowels. There is almost no correlation for the short vowels. 
+
+Making a table for correlation coefficients:
+
+```{r rel5, echo=TRUE}
+finnish.summary <- clean %>%
+  group_by(length) %>%
+summarize(dvcd.by.vcd = cor(dvcdDur,vcdDur),
+          vcd.by.sanoi = cor(vcdDur,sanoiDur)
+          )
+kable(finnish.summary)
+
+```
+
+These numbers reflect the information provided by the plots: the highest correlation is shown between vcdDur and sanoiDur for long vowels whereas the correlation for short vowel is almost 0. We can also take into account the different speakers and obtain the following table:
+
+```{r rel6, echo=TRUE}
+finnish.summary <- clean %>%
+  group_by(length,speaker) %>%
+summarize(dvcd.by.vcd = cor(dvcdDur,vcdDur),
+          vcd.by.sanoi = cor(vcdDur,sanoiDur)
+          )
+kable(finnish.summary)
+
+```
+
+These numbers are a bit puzzling. The correlations for individual speakers are mostly negative. However in the table and plots above there is a clearly positive correlation between vcdDur and dvcdDur as well as vcdDur and sanoiDur. If we create a scatterplot between vcdDur and dvcdDur for only speaker 1, we get the following plot:
+
+```{r rel7, echo=TRUE}
+nonzero_s1 <- s1[s1$dvcdDur!=0,] #cleaning data in a similar fashion once again
+clean_s1 <- nonzero_s1[nonzero_s1$dvcdDur>=0,]
+v_sp0 <- ggplot(nonzero_s1,
+                aes(vcdDur, dvcdDur, color = length))
+
+v_sp1 <- v_sp0 + geom_point() + geom_smooth(method=lm, se=FALSE)
+
+v_sp1
+
+```
+
+I am not quite sure what to make of this. There is a positive correlation when the data for all 4 speakers is pooled together, but not for each individual's data. 
+
+## Open-ended:
+
+We can explore the relationship between syllaType and vcdDur, duration and dvcdDur in a similar fashion:
+
+```{r oe1, echo=TRUE}
+
+require(gridExtra)
+
+syl_v0 <- ggplot(clean,
+                aes(vcdDur, syllaType, color = length))
+
+syl_v1 <- syl_v0 + geom_point() 
+
+syl_d0 <- ggplot(clean,
+                aes(duration, syllaType, color = length))
+
+syl_d1 <- syl_d0 + geom_point() 
+
+syl_dv0 <- ggplot(clean,
+                aes(dvcdDur, syllaType, color = length))
+
+syl_dv1 <- syl_dv0 + geom_point() 
+
+dur_dvc0 <- ggplot(clean,
+                aes(dvcdDur,color = length))
+
+dur_dvc1 <- dur_dvc0 + geom_density()
+
+grid.arrange(syl_v1,syl_d1,syl_dv1,dur_dvc1)
+
+```
+
+From these plots it is clear that for duration and vcdDur the distribution is divided clearly into long and short categories. dvcdDur does not show this. Instead, the distribution is concentrated between the range ~0-150 regardless of vowel length. If we take the mean of each of these measures and split them along vowel length we get the following table:
+
+
+```{r rel8, echo=TRUE}
+long <- dplyr::filter(clean,length=='long vowel')
+short <- dplyr::filter(clean,length=='short vowel')
+
+summary <- clean %>%
+  group_by(length) %>%
+  summarize(mean_vcdDur = mean(vcdDur),
+            mean_duration = mean(duration),
+            mean_dvcdDur = mean(dvcdDur)
+  )
+
+kable(summary)
+
+```
+
+This table shows that dvcdDur does not appear to be a funciton of duration or vcdDur. 
